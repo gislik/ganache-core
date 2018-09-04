@@ -60,6 +60,18 @@ function noLeadingZeros(method, result, path) {
   }
 }
 
+function noLeadingZerosTx(tx) {
+  const fields = ['nonce', 'gasPrice', 'gas', 'value', 'input'];
+  for (var i in fields) {
+    const field = fields[i]
+    if (typeof tx[field] === "undefined") {
+      assert.fail(`Field ${field} should not be undefined`)
+    }
+    assert.equal(tx[field], to.rpcQuantityHexString(tx[field]), assert `Quantity field ${field} in transaction is missing or has leading zeroes.`);
+  }
+}
+
+
 describe("JSON-RPC Response", function() {
   var web3 = new Web3();
   var provider = Ganache.provider();
@@ -122,6 +134,43 @@ describe("JSON-RPC Response", function() {
         provider.sendAsync(request, function(err, result) {
           noLeadingZeros('eth_getTransactionCount', result);
           done();
+        });
+      });
+    });
+  });
+
+  it("should not have leading zeros in rpc tx quantity hex strings", function(done) {
+    var request = {
+      "jsonrpc": "2.0",
+      "method": "eth_sendTransaction",
+      "params": [
+        {
+          "from": accounts[0],
+          "to": accounts[1],
+          "value": "0x100000000",
+          "gas": "0x015F90",
+          "gasPrice": "0x01",
+        }
+      ],
+      "id": 1
+    };
+    provider.sendAsync(request, function() {
+      // force nonce to be at least 1 (since 0 encodes to 0x0)
+      provider.sendAsync(request, function(err, result) {
+        request = {
+          "jsonrpc": "2.0",
+          "method": "eth_getTransactionByHash",
+          "params": [
+            result.result
+          ],
+          "id": 2
+        };
+
+        provider.sendAsync(request, function(err, result) {
+
+          noLeadingZerosTx(result.result);
+          done();
+
         });
       });
     });
